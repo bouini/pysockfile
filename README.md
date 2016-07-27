@@ -1,7 +1,10 @@
 # pysockfile
 [sockfile](https://github.com/Steveice10/sockfile) port to python
 
-Useful to send files over the network without installing java.
+Sends files over the network without installing java.
+
+## Compatibility
+[FBI v2](https://github.com/Steveice10/FBI/releases)
 
 ## Usage
 python pysockfile <ip> <file>
