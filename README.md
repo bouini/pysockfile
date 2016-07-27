@@ -7,7 +7,7 @@ Sends files over the network without installing java.
 [FBI v2](https://github.com/Steveice10/FBI/releases)
 
 ## Usage
-python pysockfile <ip> <file>
+python pysockfile.py _ip_ _file_
 
 ex:
-python sockfile.py 192.168.1.101 ftpd.cia
+_python pysockfile.py 192.168.1.101 ftpd.cia_
