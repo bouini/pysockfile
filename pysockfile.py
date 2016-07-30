@@ -30,6 +30,14 @@ from contextlib import closing
 BUFFER_SIZE = 256 * 1024
 FBI_PORT = 5000
 
+def convertBytesToString(size):
+    units=['B','KB','MB','GB','TB']
+    pos=0
+    while(size>1024.0 and pos<len(units)-1):
+        pos+=1
+        size/=1024.0
+    return '%.2f%s'%(size,units[pos])
+
 def send_file(files, ip):
     with closing(socket.create_connection((ip, FBI_PORT),2)) as sock:
         sock.settimeout(None)
@@ -39,7 +47,7 @@ def send_file(files, ip):
         print 'Sending files...'
         for filename in files:
             filesize=os.stat(filename).st_size
-            fbiinfo=struct.pack('!q', filesize)                      
+            fbiinfo=struct.pack('!q', filesize)
             with open(filename, 'rb') as f:
                 ack=sock.recv(1)
                 if ack == 0:
@@ -57,7 +65,7 @@ def send_file(files, ip):
                         loop=False
                     else:
                         i+=sock.send(buf)
-                        print '%d/%d'%(i,filesize)
+                        print '%3d%% ... %s / %s'%(i*100/filesize,convertBytesToString(i),convertBytesToString(filesize))
         print 'All files sent successfully'
         
 def main(args):
