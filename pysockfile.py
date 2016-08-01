@@ -1,80 +1,69 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#
-#  sockfile.py
-#  
-#  Copyright 2016
-#  
-#  This program is free software; you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation; either version 2 of the License, or
-#  (at your option) any later version.
-#  
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#  
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software
-#  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
-#  MA 02110-1301, USA.
-#  
-# 
+
 
 import os
 import socket 
 import struct
+import time
 from contextlib import closing
 
 BUFFER_SIZE = 256 * 1024
 FBI_PORT = 5000
 
-def convertBytesToString(size):
+def convert_bytes_to_string(size):
     units=['B','KB','MB','GB','TB']
     pos=0
-    while(size>1024.0 and pos<len(units)-1):
+    while(size>=1024.0 and pos<len(units)-1):
         pos+=1
         size/=1024.0
     return '%.2f%s'%(size,units[pos])
 
-def send_file(files, ip):
+def send_files(files, ip):
     with closing(socket.create_connection((ip, FBI_PORT),2)) as sock:
         sock.settimeout(None)
-        counter=len(files)
-        counterinfo=struct.pack('!i', counter)
-        sock.send(counterinfo)
-        print 'Sending files...'
+        counter=struct.pack('!i', len(files))
+        sock.send(counter)
         for filename in files:
+            start=time.time()
             filesize=os.stat(filename).st_size
-            fbiinfo=struct.pack('!q', filesize)
+            info=struct.pack('!q', filesize)
             with open(filename, 'rb') as f:
                 ack=sock.recv(1)
                 if ack == 0:
-                    print 'Send cancelled by remote'
-                    return
-                print 'Sending info for \'%s\'...'%filename
-                sock.send(fbiinfo)                
-                loop=True
-                i=0
-                print 'Sending data for \'%s\'...'%filename 
-                while loop:
-                    buf=f.read(BUFFER_SIZE)
-                    if not buf:
-                        print 'File \'%s\' sent successfully'%filename
-                        loop=False
+                    raise Exception('Send cancelled by remote')
+                sock.send(info)                
+                transfered=0
+                while transfered<filesize:
+                    data=f.read(BUFFER_SIZE)
+                    if not data:
+                        raise Exception('Cannot read file \'%s\''%filename)
                     else:
-                        i+=sock.send(buf)
-                        print '%3d%% ... %s / %s'%(i*100/filesize,convertBytesToString(i),convertBytesToString(filesize))
-        print 'All files sent successfully'
+                        transfered+=sock.send(data)
+                        current=time.time()
+                        progress = transfered*100/filesize
+                        speed = (transfered/1024.0)/(current-start)
+                        yield(filename,convert_bytes_to_string(transfered),convert_bytes_to_string(filesize),progress,speed)
         
 def main(args):
     ip = args[1]
     files = args[2:]
     print 'ip = ' + ip
     print 'files = ' + str(files).strip('[]')
-    send_file(files, ip)
-    return 0
+    try:
+        print 'Sending files...'
+        current=''
+        for progress in send_files(files, ip):
+            if current!=progress[0]:
+                current=progress[0]
+                print 'Transfer file \'%s\''%current
+            print '%s/%s    %3d%%    %.2fKB/s'%progress[1:]
+        print 'All files sent successfully'
+        return 0
+    except Exception as e:
+        print 'Transfer failed : %s'%e
+        return -1
+        
 
 if __name__ == '__main__':
     import sys
